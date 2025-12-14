@@ -1,50 +1,43 @@
-// src/types.ts
-// Defines the possible states for the main App component
-export type AppView = 'lookup' | 'inventory_import' | 'product_import';
-// Defines the structure of an item returned by the /api/lookup endpoint
-export type InventoryItem = {
-  upc_id: string;
-  item_name: string;
-  shelf_id: string;
-  shelf_row: string;
-  item_position: number;
-  description: string;
-  price: number;
-  category: string;
-  brand: string;
-};
+// src/types.ts (Refactored Interfaces)
 
-// Defines the structure for the POST body sent to the /api/import endpoint
-export type ImportPayload = {
-  upc: string;
-  shelf_id: string;
-  shelf_row: string;
-  item_position: number;
-};
-
-export type ProductImportPayloadItem = {
-    upc: string; // Corresponds to upc_id in DB
-    custom_sku: string;
-    item: string; // Corresponds to item_name in DB
+// Existing interface for a single product payload sent to /api/product-import
+export interface ProductPayload {
+    upc: string;
+    description: string;
     price: number;
     category: string;
-    subcat_1: string;
-    subcat_2?: string; 
-    subcat_3?: string; 
     brand: string;
-};
+    custom_sku: string;        // Existing
+    ean: string;               // NEW
+    manufacture_sku: string;   // NEW
+}
 
-// src/types.ts (Add this new interface)
-
-// Interface matching the raw CSV headers after parsing (PapaParse output)
+// Interface matching the raw CSV headers for Product Import
+// Ensure your CSV has headers exactly matching these keys
 export interface RawProductCSVRow {
     UPC: string;
-    'Custom SKU': string; // Matches 'custom sku' header
     Item: string;
-    Price: string; // Price usually comes as a string from CSV
+    Price: string;
     Category: string;
-    'Subcategory 1': string;
-    'Subcategory 2': string;
-    'Subcategory 3': string;
     Brand: string;
+    "Custom SKU": string;
+    EAN: string;
+    "Manufact. SKU": string;
+    "System ID": string;  // Retained for backward compatibility
+}
+
+// The following types remain the same:
+
+// Interface matching the raw CSV headers for Bulk Location Import
+export interface RawLocationCSVRow {
+    UPC: string;
+}
+
+// Interface for location assignment (used by BulkImport.tsx and sent to /api/import)
+export interface ImportPayload {
+  upc: string;
+  description: string; 
+  shelf_id: string;
+  shelf_row: string;
+  item_position: number;
 }
