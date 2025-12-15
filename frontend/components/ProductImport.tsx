@@ -1,31 +1,38 @@
 // src/components/ProductImport.tsx
 import React, { useState } from "react";
 import type { ChangeEvent } from "react";
-import type { ProductImportPayloadItem, RawProductCSVRow } from "../src/types";
+import type { RawProductCSVRow, ProductPayload } from "../src/types";
 import Papa from "papaparse";
 
-const API_PRODUCT_IMPORT_URL = "http://127.0.0.1:5000/api/product-import";
+const API_IMPORT_URL = "http://127.0.0.1:5000/api/product-import";
 
-// Helper function to dynamically set status classes for CSS
+// Helper function to dynamically apply CSS classes for status messages
 const getStatusClasses = (
-  type: "info" | "success" | "error" | "loading"
-): string => {
-  if (type === "success") return "status-message success";
-  if (type === "error") return "status-message error";
-  return "status-message info";
+  type: "info" | "loading" | "success" | "conflict" | "error"
+) => {
+  switch (type) {
+    case "success":
+      return "status-message success";
+    case "error":
+      return "status-message error";
+    case "conflict":
+      return "status-message conflict";
+    default:
+      return "status-message info";
+  }
 };
 
 const ProductImport: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [status, setStatus] = useState<{
     message: string;
-    type: "info" | "success" | "error" | "loading";
-  }>({ message: "Ready to upload CSV file.", type: "info" });
+    type: "info" | "loading" | "success" | "conflict" | "error";
+  }>({ message: "Ready to import product master file.", type: "info" });
+  const [loading, setLoading] = useState<boolean>(false);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      setImportFile(e.target.files[0]);
       setStatus({
         message: `File selected: ${e.target.files[0].name}`,
         type: "info",
@@ -33,79 +40,86 @@ const ProductImport: React.FC = () => {
     }
   };
 
-  const parseAndImport = async () => {
-    if (!file) {
-      setStatus({
-        message: "Please select a CSV file to upload.",
-        type: "error",
-      });
+  const handleImport = () => {
+    if (!importFile) {
+      setStatus({ message: "Error: Please select a CSV file.", type: "error" });
       return;
     }
 
     setLoading(true);
-    setStatus({ message: `Parsing file: ${file.name}...`, type: "loading" });
+    setStatus({ message: `Parsing ${importFile.name}...`, type: "loading" });
 
-    Papa.parse(file, {
+    Papa.parse(importFile, {
       header: true,
-      skipEmptyLines: true, // Helps remove trailing blank rows
+      skipEmptyLines: true,
       complete: async (results) => {
-        // Assert the type of the parsed data for strict compliance
         const rawData: RawProductCSVRow[] = results.data as RawProductCSVRow[];
 
-        // --- Data Transformation & Validation ---
-        const productsArray: ProductImportPayloadItem[] = rawData
-          .map((row) => ({
-            upc: String(row.UPC || "").trim(),
-            custom_sku: row["Custom SKU"] || "",
-            item: row.Item || "",
-            price: parseFloat(row.Price) || 0.0, // Convert string price to number
-            category: row.Category || "",
-            subcat_1: row["Subcategory 1"] || "",
-            subcat_2: row["Subcategory 2"] || "",
-            subcat_3: row["Subcategory 3"] || "",
-            brand: row.Brand || "",
-          }))
-          .filter((item) => item.upc.length > 0 && item.upc !== "");
+        const productPayloads: ProductPayload[] = rawData
+          .map((row) => {
+            // Crucial: Check for the primary key (UPC)
+            const upc = String(row.UPC || "").trim();
+            if (upc.length === 0) {
+              console.warn("Skipping row with missing UPC:", row);
+              return null;
+            }
 
-        if (productsArray.length === 0) {
+            // Map and clean all fields, including the new EAN and Manufacturer SKU
+            return {
+              upc: upc,
+              description: String(row.Item || "").trim(),
+              // Robust price parsing: remove non-numeric chars except '.' and parse as float
+              price:
+                parseFloat(String(row.Price || "0").replace(/[^0-9.]/g, "")) ||
+                0.0,
+              category: String(row.Category || "").trim(),
+              brand: String(row.Brand || "").trim(),
+              custom_sku: String(row["Custom SKU"] || "").trim(),
+              ean: String(row.EAN || "").trim(),
+              manufacture_sku: String(row["Manufact. SKU"] || "").trim(),
+              system_id: String(row["System ID"] || "").trim(),
+            } as ProductPayload;
+          })
+          .filter((p): p is ProductPayload => p !== null);
+
+        if (productPayloads.length === 0) {
           setLoading(false);
           return setStatus({
-            message:
-              "Parsing Error: No valid products found in the file. Check your UPC column.",
+            message: "Error: No valid product records found to import.",
             type: "error",
           });
         }
 
-        setStatus({
-          message: `Sending ${productsArray.length} records to server...`,
-          type: "loading",
-        });
+        // --- API Submission ---
         try {
-          const response = await fetch(API_PRODUCT_IMPORT_URL, {
+          const response = await fetch(API_IMPORT_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(productsArray),
+            body: JSON.stringify(productPayloads),
           });
 
           const data = await response.json();
 
           if (response.ok) {
-            setStatus({ message: `Success! ${data.message}`, type: "success" });
-            setFile(null);
-          } else {
             setStatus({
-              message: `API Error (${response.status}): ${
-                data.message || "Check Flask logs."
-              }`,
+              message: `Success! Imported/updated ${productPayloads.length} product records.`,
+              type: "success",
+            });
+            setImportFile(null); // Clear file input on success
+          } else {
+            // The server response should contain a detailed message on failure
+            setStatus({
+              message: `Server Error: ${data.message || "Check server logs."}`,
               type: "error",
             });
           }
         } catch (e) {
           setStatus({
-            message: `Network Error: Failed to connect to Flask API.`,
+            message:
+              "Connection Error: Ensure Flask server is running and accessible.",
             type: "error",
           });
-          console.error("Error details:", e);
+          console.error("Import Error:", e);
         } finally {
           setLoading(false);
         }
@@ -119,39 +133,48 @@ const ProductImport: React.FC = () => {
 
   return (
     <div className="card">
-      <h2>Bulk Product Data Import (POS Sync)</h2>
+      <h2>Product Data Master Sync</h2>
       <p>
-        Upload a **CSV file** exported from your POS system. Headers must match
-        the required fields exactly.
+        Upload a CSV file to update the master list of products. This uses the
+        UPC as the primary key.
       </p>
 
-      <input
-        type="file"
-        accept=".csv"
-        onChange={handleFileChange}
-        disabled={loading}
-        style={{ marginBottom: "15px" }}
-      />
+      <div className="input-group">
+        <label htmlFor="product-file">Product Master CSV File</label>
+        <p
+          style={{
+            color: "var(--color-text-muted)",
+            fontSize: "0.85rem",
+            marginTop: "-5px",
+          }}
+        >
+          CSV must contain the following headers: **UPC, Name, Price, Category,
+          Brand, CustomSKU, EAN, ManufacturerSKU**.
+        </p>
+        <input
+          id="product-file"
+          type="file"
+          accept=".csv"
+          onChange={handleFileChange}
+          disabled={loading}
+        />
+      </div>
 
       <button
-        onClick={parseAndImport}
-        disabled={loading || !file}
-        style={{ padding: "10px 20px" }}
+        onClick={handleImport}
+        disabled={loading || !importFile}
+        style={{ marginTop: "15px" }}
       >
         {loading
           ? "Processing..."
-          : `Upload & Sync ${file ? `(${file.name})` : ""}`}
+          : `Start Product Import (${
+              importFile ? importFile.name : "No File Selected"
+            })`}
       </button>
 
-      {/* Display status message using dynamic class */}
-      {status.message && (
-        <p
-          className={getStatusClasses(status.type)}
-          style={{ marginTop: "15px" }}
-        >
-          {status.message}
-        </p>
-      )}
+      <p className={getStatusClasses(status.type)}>
+        {loading ? "Processing..." : status.message}
+      </p>
     </div>
   );
 };

@@ -4,34 +4,55 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS 
 import psycopg2
 import psycopg2.extras # Needed for execute_batch and RealDictCursor
-from db import get_db_connection
 
-# Load environment variables from .env file
+# --- Database Connection and Environment Setup ---
+
 load_dotenv()
 
 app = Flask(__name__)
-# Initialize CORS to allow requests from the React frontend (e.g., http://localhost:5173)
 CORS(app) 
 
-# --- Helper function for consistent error handling ---
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# --- Helper Functions ---
+
+def get_db_connection():
+    """Establishes and returns a new database connection."""
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable not set. Check your .env file.")
+    return psycopg2.connect(DATABASE_URL)
+
 def handle_db_error(e, status_code=500):
     """Logs the database error and returns a standard JSON error response."""
     print(f"Database Error: {e}")
-    # Rollback any pending transaction in case of an error
-    conn = get_db_connection()
-    if conn:
+    conn = None
+    try:
+        conn = get_db_connection()
         conn.rollback()
-        conn.close()
+    except Exception:
+        pass
+    finally:
+        if conn:
+            conn.close()
+
     return jsonify({"status": "error", "message": "A database error occurred.", "error": str(e)}), status_code
 
-# app.py 
+def empty_to_none(value):
+    """Converts empty strings or strings that only contain whitespace to None."""
+    if value is None:
+        return None
+    stripped_value = str(value).strip()
+    return stripped_value if stripped_value else None
 
-# --- API ENDPOINT 1: ITEM LOOKUP (READ) ---
+
+# app.py (Endpoint 1: /api/lookup)
+
 @app.route('/api/lookup', methods=['GET'])
 def lookup_item():
     """
-    Retrieves item location data and product details based on a UPC, 
-    partial name, or brand match.
+    Retrieves item location data and product details based on robust search logic:
+    1. Exact match on the first 12 digits (if input is long) for system_id.
+    2. Partial match (ILIKE) on all other identifier and descriptive fields.
     """
     query = request.args.get('q', '').strip()
     if not query:
@@ -42,98 +63,192 @@ def lookup_item():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # UPDATED SQL: REMOVING p.description
+        input_code = query
+        
+        # Determine the System ID search parameter (Exact Match)
+        system_id_search_code = None
+        
+        # If the input code is 12 characters or longer, assume the first 12 
+        # are the base system ID and use it for an exact match.
+        if len(input_code) >= 12:
+            system_id_search_code = input_code[:12]
+        else:
+            system_id_search_code = input_code
+
+        # The pattern for non-SystemID partial matching (strips leading zeros)
+        truncated_code = input_code.lstrip('0')
+        search_pattern = f"%{truncated_code}%" 
+        
+        # --- SQL: System ID Exact Match OR General Partial Match ---
         sql = """
             SELECT 
+                p.system_id,           
                 p.upc_id, 
-                p.item_name, 
+                p.custom_sku,
+                p.ean,
+                p.manufacture_sku,
+                p.description,
                 p.price,
                 p.category,
+                p.subcat_1, 
+                p.subcat_2, 
+                p.subcat_3, 
                 p.brand,
                 i.shelf_id, 
                 i.shelf_row, 
                 i.item_position
             FROM products p
-            JOIN inventory i ON p.upc_id = i.upc_id
+            JOIN inventory i ON p.system_id = i.system_id
             WHERE 
-                p.upc_id ILIKE %s OR 
-                p.item_name ILIKE %s OR 
-                p.brand ILIKE %s  
-            ORDER BY p.item_name, i.item_position;
+                p.system_id = %s OR              -- 1. Exact match on the truncated system ID
+                p.upc_id ILIKE %s OR             -- 2. Partial match on input code
+                p.custom_sku ILIKE %s OR         -- 3. Partial match
+                p.ean ILIKE %s OR                -- 4. Partial match (EAN)
+                p.manufacture_sku ILIKE %s OR    -- 5. Partial match
+                p.description ILIKE %s OR        -- 6. Partial match on description
+                p.brand ILIKE %s          
+            ORDER BY p.description, i.item_position;
         """
-        search_term = f"%{query}%"
         
-        # FIX: Now passing EXACTLY THREE search terms: (upc_id, item_name, brand)
-        cur.execute(sql, (search_term, search_term, search_term))
+        args = (
+            system_id_search_code,  # Exact system ID match
+            search_pattern, 
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern,
+            search_pattern          
+        )
+        
+        cur.execute(sql, args)
         items = cur.fetchall()
         
         return jsonify(items)
 
     except psycopg2.Error as e:
-        # Ensuring we handle errors cleanly if any others pop up
         return handle_db_error(e)
     finally:
         if conn:
             conn.close()
 
+def empty_to_none(value):
+    if value is None:
+        return None
+    stripped_value = str(value).strip()
+    return stripped_value if stripped_value else None
+
+
 # --- API ENDPOINT 2: INVENTORY SCAN / RELOCATION (LOCATION WRITE) ---
 @app.route('/api/import', methods=['POST'])
 def import_item():
     """
-    Inserts a new item's location or updates an existing item's location (UPSERT).
-    Relies on the presence of the UPC in the 'products' table.
+    Handles single/bulk location import. It maps the input code (UPC/SKU/SystemID) 
+    to the actual system_id (PK) using conditional search logic and inserts/updates 
+    the location in the inventory table.
     """
-    data = request.get_json()
+    payload_data = request.get_json()
     
-    # Simple validation for required location fields
-    required_fields = ['upc', 'shelf_id', 'shelf_row', 'item_position']
-    if not all(field in data for field in required_fields):
-        return jsonify({"status": "error", "message": "Missing required fields for location scan."}), 400
+    if isinstance(payload_data, dict):
+        payloads = [payload_data]
+    elif isinstance(payload_data, list):
+        payloads = payload_data
+    else:
+        return jsonify({"status": "error", "message": "Invalid payload format. Expected dict or list."}), 400
 
-    upc = data['upc']
-    shelf_id = data['shelf_id']
-    shelf_row = data['shelf_row']
-    item_position = data['item_position']
+    if not payloads:
+        return jsonify({"status": "error", "message": "No location data received."}), 400
 
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # SQL UPSERT for the inventory table: Handles location insertion/update.
+        data_to_insert = []
+        
+        # 1. ITERATE AND MAP PAYLOADS
+        for data in payloads:
+            required_fields = ['upc', 'shelf_id', 'shelf_row', 'item_position']
+            if not all(field in data for field in required_fields) or not data['upc']:
+                print("Skipping malformed or empty payload:", data)
+                continue
+                
+            input_code = str(data['upc']).strip()
+            shelf_id = data['shelf_id']
+            shelf_row = data['shelf_row']
+            item_position = data['item_position']
+            
+            # The pattern for non-SystemID partial matching (strips leading zeros)
+            truncated_code = input_code.lstrip('0')
+            search_pattern = f"%{truncated_code}" 
+            
+            # 1. Determine the System ID search parameter
+            system_id_search_code = None
+            
+            # IF the scanned code is 12 characters or longer, we assume the first 12 
+            # are the exact System ID. This handles scanner over-reads.
+            if len(input_code) >= 12:
+                system_id_search_code = input_code[:12]
+            
+            # If it's less than 12, rely on the partial match for all fields.
+
+
+            mapping_sql = """
+                SELECT system_id FROM products
+                WHERE 
+                    system_id = %s OR            -- 1. Exact match on the truncated code (or None)
+                    upc_id ILIKE %s OR           -- 2. Partial match on input code
+                    custom_sku ILIKE %s OR       -- 3. Partial match
+                    manufacture_sku ILIKE %s;    -- 4. Partial match
+            """      
+            args = (
+                system_id_search_code, 
+                search_pattern,
+                search_pattern,
+                search_pattern
+            )
+            
+            cur.execute(mapping_sql, args)
+            result = cur.fetchone()
+
+            if result:
+                # MAPPING SUCCESS: Retrieve the actual system_id (PK for inventory)
+                actual_system_id = result[0] 
+                data_to_insert.append((actual_system_id, shelf_id, shelf_row, item_position))
+            else:
+                print(f"Skipping assignment for code {input_code}: No product found.")
+
+        if not data_to_insert:
+             return jsonify({
+                "status": "error",
+                "message": "The provided data contained no valid codes found in the product database for location assignment."
+            }), 404
+
+        # Inserts the system_id and location data. Conflict updates only the item_position.
         sql_upsert = """
-            INSERT INTO inventory (upc_id, shelf_id, shelf_row, item_position)
+            INSERT INTO inventory (system_id, shelf_id, shelf_row, item_position)
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (upc_id, shelf_id, shelf_row) DO UPDATE -- Conflict resolution based on existing item location
-            SET shelf_id = EXCLUDED.shelf_id,
-                shelf_row = EXCLUDED.shelf_row,
-                item_position = EXCLUDED.item_position
+            ON CONFLICT (system_id, shelf_id, shelf_row) DO UPDATE
+            SET item_position = EXCLUDED.item_position;
         """
-        cur.execute(sql_upsert, (upc, shelf_id, shelf_row, item_position))
+        
+        psycopg2.extras.execute_batch(cur, sql_upsert, data_to_insert)
         conn.commit()
 
         return jsonify({
             "status": "success",
-            "message": f"UPC {upc} assigned to {shelf_id}/{shelf_row} Position {item_position}."
+            "message": f"Successfully mapped and assigned {len(data_to_insert)} locations."
         }), 200
 
     except psycopg2.IntegrityError as e:
-        # Check for specific constraint violation on location (shelf_id, shelf_row, item_position)
-        if 'duplicate key value violates unique constraint "inventory_shelf_id_shelf_row_item_position_key"' in str(e):
-             return jsonify({
-                "status": "error",
-                "message": "Conflict! The specified shelf location is already taken.",
-                "error": str(e)
-            }), 409 # 409 Conflict status code signals frontend to stop auto-increment
-
-        # Check for Foreign Key violation (item not in products table)
+        # Check for specific constraint violation
         if 'foreign key constraint' in str(e):
              return jsonify({
-                "status": "error",
-                "message": "Product data not found. Please sync product data first (Product Sync).",
-                "error": str(e)
-            }), 404
-            
+                 "status": "error",
+                 "message": "Product data not found for one or more codes. Please sync product data first.",
+                 "error": str(e)
+             }), 404 
+        
+        # Fallback to general error handler
         return handle_db_error(e)
 
     except psycopg2.Error as e:
@@ -142,32 +257,34 @@ def import_item():
         if conn:
             conn.close()
 
-
 # --- API ENDPOINT 3: BULK PRODUCT IMPORT (STATIC DATA WRITE) ---
 @app.route('/api/product-import', methods=['POST'])
 def bulk_product_import():
     """
-    Accepts a list of product dictionaries and performs a bulk UPSERT 
-    into the dedicated 'products' table.
+    Performs a bulk UPSERT of product data into the 'products' table, using system_id as the primary key.
+    The payload now expects the 'description' field.
     """
     products_data = request.get_json()
     if not isinstance(products_data, list) or not products_data:
         return jsonify({"status": "error", "message": "Payload must be a non-empty list of products."}), 400
 
-    # Data preparation for bulk insert
     data_to_insert = []
     for item in products_data:
-        upc_value = item.get('upc')
+        system_id_value = item.get('system_id')
         
-        if not upc_value or len(str(upc_value).strip()) == 0:
-            print(f"Skipping row due to empty/null UPC: {item}")
+        if not system_id_value or len(str(system_id_value).strip()) == 0:
+            print(f"Skipping row due to empty/null system_id: {item}")
             continue
 
-        # Only append valid data
+        # Map to the 12 fields 
         data_to_insert.append((
-            upc_value,
-            item.get('custom_sku'),
-            item.get('item'),
+            system_id_value, 
+            empty_to_none(item.get('upc')), 
+            empty_to_none(item.get('custom_sku')),
+            empty_to_none(item.get('ean')),
+            empty_to_none(item.get('manufacture_sku')),
+            
+            item.get('description'),
             item.get('price'),
             item.get('category'),
             item.get('subcat_1'),
@@ -178,24 +295,29 @@ def bulk_product_import():
 
     if not data_to_insert:
          return jsonify({
-            "status": "error",
-            "message": "The uploaded file contained no valid product rows with a UPC."
-        }), 400
+             "status": "error",
+             "message": "The uploaded file contained no valid product rows with a system_id."
+         }), 400
 
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # SQL UPSERT for the products table (9 fields total)
+        # SQL UPSERT for the products table
         sql_upsert = """
             INSERT INTO products (
-                upc_id, custom_sku, item_name, price, category, subcat_1, subcat_2, subcat_3, brand
+                system_id, upc_id, custom_sku, ean, manufacture_sku, description, price, 
+                category, subcat_1, subcat_2, subcat_3, brand
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (upc_id) DO UPDATE
-            SET custom_sku = EXCLUDED.custom_sku,
-                item_name = EXCLUDED.item_name,
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (system_id) DO UPDATE
+            SET 
+                upc_id = EXCLUDED.upc_id,
+                custom_sku = EXCLUDED.custom_sku,
+                ean = EXCLUDED.ean,
+                manufacture_sku = EXCLUDED.manufacture_sku,
+                description = EXCLUDED.description,   -- UPDATED COLUMN NAME
                 price = EXCLUDED.price,
                 category = EXCLUDED.category,
                 subcat_1 = EXCLUDED.subcat_1,
@@ -204,7 +326,6 @@ def bulk_product_import():
                 brand = EXCLUDED.brand;
         """
         
-        # Use execute_batch for highly efficient bulk insertion
         psycopg2.extras.execute_batch(cur, sql_upsert, data_to_insert)
         conn.commit()
 
@@ -221,5 +342,4 @@ def bulk_product_import():
 
 
 if __name__ == '__main__':
-    # Use '0.0.0.0' for deployment readiness and port 5000
     app.run(debug=True, host='0.0.0.0', port=os.getenv('FLASK_PORT', 5000))
