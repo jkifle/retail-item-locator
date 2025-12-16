@@ -1,7 +1,5 @@
 # requirements.txt
 Flask
 flask-cors
-psycopg2-binary # Use binary package for easier deployment
-python-dotenv
-# Add the vercel-specific dependency
-vercel-python
+psycopg2-binary  # Use binary for easier deployment
+python-dotenv    # For local testing only

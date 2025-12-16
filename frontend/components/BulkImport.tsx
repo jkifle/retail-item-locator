@@ -155,7 +155,6 @@ const BulkImport: React.FC = () => {
             if (currentUPC.length > 0) {
               const payload: ImportPayload = {
                 upc: currentUPC,
-                description: "N/A",
                 shelf_id: shelfId,
                 shelf_row: shelfRow,
                 item_position: currentPosition,
@@ -216,7 +215,6 @@ const BulkImport: React.FC = () => {
     const bulkPayloads: ImportPayload[] = upcList.map((upc) => {
       const payload: ImportPayload = {
         upc: upc,
-        description: "N/A",
         shelf_id: shelfId,
         shelf_row: shelfRow,
         item_position: currentPosition,
@@ -245,7 +243,6 @@ const BulkImport: React.FC = () => {
 
     const payload: ImportPayload = {
       upc,
-      description: "N/A",
       shelf_id: shelfId,
       shelf_row: shelfRow,
       item_position: position,
