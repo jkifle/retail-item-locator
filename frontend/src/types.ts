@@ -1,5 +1,15 @@
 // src/types.ts (FINAL, CORRECTED INTERFACES)
 
+export type AppView = 
+    'ITEM_LOOKUP' | 
+    'BULK_LOCATION_IMPORT' | 
+    'PRODUCT_MASTER_IMPORT';
+
+export const AppViewName = {
+    ItemLookup: 'ITEM_LOOKUP' as AppView,
+    BulkLocationImport: 'BULK_LOCATION_IMPORT' as AppView,
+    ProductMasterImport: 'PRODUCT_MASTER_IMPORT' as AppView,
+};
 // RAW PRODUCT CSV ROW (Matching EXACT CSV Headers)
 export interface RawProductCSVRow {
     UPC: string;

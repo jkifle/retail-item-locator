@@ -8,15 +8,15 @@ import "./App.css";
 
 const App: React.FC = () => {
   // Sets the default view to 'lookup'. Uses the imported AppView type.
-  const [currentView, setCurrentView] = useState<AppView>("lookup");
+  const [currentView, setCurrentView] = useState<AppView>("ITEM_LOOKUP");
 
   const renderView = () => {
     switch (currentView) {
-      case "lookup":
+      case "ITEM_LOOKUP":
         return <ItemLookup />;
-      case "inventory_import": // Inventory location scanning (UPC, Shelf ID, Position)
+      case "BULK_LOCATION_IMPORT": // Inventory location scanning (UPC, Shelf ID, Position)
         return <BulkImport />;
-      case "product_import": // Static product data sync (Price, Category, SKU)
+      case "PRODUCT_MASTER_IMPORT": // Static product data sync (Price, Category, SKU)
         return <ProductImport />;
       default:
         return <ItemLookup />;
@@ -28,23 +28,23 @@ const App: React.FC = () => {
       <header className="header">
         {/* Navigation Buttons: Use the AppView strings to manage state */}
         <button
-          onClick={() => setCurrentView("lookup")}
-          disabled={currentView === "lookup"}
-          className={currentView === "lookup" ? "active" : ""}
+          onClick={() => setCurrentView("ITEM_LOOKUP")}
+          disabled={currentView === "ITEM_LOOKUP"}
+          className={currentView === "ITEM_LOOKUP" ? "active" : ""}
         >
           Item Locator
         </button>
         <button
-          onClick={() => setCurrentView("inventory_import")}
-          disabled={currentView === "inventory_import"}
-          className={currentView === "inventory_import" ? "active" : ""}
+          onClick={() => setCurrentView("BULK_LOCATION_IMPORT")}
+          disabled={currentView === "BULK_LOCATION_IMPORT"}
+          className={currentView === "BULK_LOCATION_IMPORT" ? "active" : ""}
         >
           Inventory Scan
         </button>
         <button
-          onClick={() => setCurrentView("product_import")}
-          disabled={currentView === "product_import"}
-          className={currentView === "product_import" ? "active" : ""}
+          onClick={() => setCurrentView("PRODUCT_MASTER_IMPORT")}
+          disabled={currentView === "PRODUCT_MASTER_IMPORT"}
+          className={currentView === "PRODUCT_MASTER_IMPORT" ? "active" : ""}
         >
           Product Sync
         </button>
