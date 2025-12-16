@@ -341,5 +341,4 @@ def bulk_product_import():
             conn.close()
 
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=os.getenv('FLASK_PORT', 5000))
+from vercel_app import handler

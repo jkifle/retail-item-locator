@@ -1,0 +1,7 @@
+# requirements.txt
+Flask
+flask-cors
+psycopg2-binary # Use binary package for easier deployment
+python-dotenv
+# Add the vercel-specific dependency
+vercel-python

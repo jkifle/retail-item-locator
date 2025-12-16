@@ -1,4 +1,4 @@
-# db.py
+""" # db.py
 import psycopg2
 from dotenv import load_dotenv
 import os
@@ -6,7 +6,6 @@ import os
 load_dotenv()
 
 def get_db_connection():
-    """Creates and returns a new database connection."""
     try:
         conn = psycopg2.connect(
             host=os.getenv('DB_HOST'),
@@ -17,4 +16,4 @@ def get_db_connection():
         return conn
     except psycopg2.Error as e:
         print(f"Database connection error: {e}")
-        return None
+        return None """
