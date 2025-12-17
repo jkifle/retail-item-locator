@@ -9,8 +9,7 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build",
-        "installCommand": "npm install",
+        "distDir": "dist",
         "buildCommand": "npm run build"
       }
     }
@@ -22,8 +21,8 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/frontend/dist/index.html"
     }
   ],
-  "installCommand": "pip install -r requirements.txt && cd frontend && npm install" 
+  "installCommand": "pip install -r requirements.txt && cd frontend && npm install"
 }
