@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { LookupResult } from "../src/types";
 
-const API_LOOKUP_URL = "http://127.0.0.1:5000/api/lookup";
+export const API_LOOKUP_URL = "/api/lookup";
 
 const ItemLookup: React.FC = () => {
   const [query, setQuery] = useState<string>("");

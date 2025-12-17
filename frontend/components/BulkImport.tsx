@@ -4,7 +4,7 @@ import type { KeyboardEvent, ChangeEvent } from "react";
 import type { ImportPayload, RawLocationCSVRow } from "../src/types";
 import Papa from "papaparse";
 
-const API_IMPORT_URL = "http://127.0.0.1:5000/api/import";
+const API_IMPORT_URL = "/api/import";
 
 // Define the available modes
 type ImportMode = "scan" | "file" | "paste";
