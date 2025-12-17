@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useState } from "react";
 import type { AppView } from "./types";
 import ItemLookup from "../components/ItemLookup";
