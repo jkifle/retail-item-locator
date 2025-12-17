@@ -1,8 +1,12 @@
+# api/lookup.py
 import os
-import json
 import psycopg2
 import psycopg2.extras
-from vercel import Response
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -11,17 +15,18 @@ def get_db_connection():
         raise ValueError("DATABASE_URL not set")
     return psycopg2.connect(DATABASE_URL)
 
-def handler(request):
-    try:
-        query = request.args.get("q", "").strip()
-        if not query:
-            # Return empty array if no query
-            return Response(
-                status_code=200,
-                headers={"Content-Type": "application/json"},
-                body=json.dumps([])
-            )
+def handle_db_error(e):
+    print(f"Database error: {e}")
+    return jsonify({"status": "error", "message": "A database error occurred.", "error": str(e)}), 500
 
+@app.route("/", methods=["GET"])
+def handler():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify([])
+
+    conn = None
+    try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -58,30 +63,14 @@ def handler(request):
 
         cur.execute(sql, args)
         items = cur.fetchall()
-
-        return Response(
-            status_code=200,
-            headers={"Content-Type": "application/json"},
-            body=json.dumps(items, default=str)  # default=str to handle any non-serializable types
-        )
+        return jsonify(items)
 
     except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        return Response(
-            status_code=500,
-            headers={"Content-Type": "application/json"},
-            body=json.dumps({"status": "error", "message": "A database error occurred.", "error": str(e)})
-        )
-    except Exception as e:
-        print(f"Error: {e}")
-        return Response(
-            status_code=500,
-            headers={"Content-Type": "application/json"},
-            body=json.dumps({"status": "error", "message": str(e)})
-        )
+        return handle_db_error(e)
     finally:
-        try:
-            if conn:
-                conn.close()
-        except Exception:
-            pass
+        if conn:
+            conn.close()
+
+# Enable Flask to work as a Vercel serverless function
+if __name__ == "__main__":
+    app.run(debug=True)
