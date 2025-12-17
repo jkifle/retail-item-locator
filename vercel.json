@@ -17,6 +17,9 @@
       "dest": "/api/$1.py"
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
