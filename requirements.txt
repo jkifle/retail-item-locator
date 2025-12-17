@@ -1,5 +1,4 @@
-# requirements.txt
-Flask
-flask-cors
-psycopg2-binary  # Use binary for easier deployment
-python-dotenv    # For local testing only
+Flask==3.0.3
+flask-cors==4.0.1
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1

@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS 
 import psycopg2
@@ -7,7 +6,6 @@ import psycopg2.extras # Needed for execute_batch and RealDictCursor
 
 # --- Database Connection and Environment Setup ---
 
-load_dotenv()
 
 app = Flask(__name__)
 CORS(app) 
@@ -341,4 +339,3 @@ def bulk_product_import():
             conn.close()
 
 
-from vercel_app import handler
