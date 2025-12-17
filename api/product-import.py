@@ -1,12 +1,9 @@
 # api/product-import.py
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import json
 import psycopg2
 import psycopg2.extras
-
-app = Flask(__name__)
-CORS(app)
+from vercel import Response
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -21,39 +18,45 @@ def empty_to_none(value):
     s = str(value).strip()
     return s if s else None
 
-@app.route("/", methods=["POST"])
-def handler():
-    products_data = request.get_json()
-    if not isinstance(products_data, list) or not products_data:
-        return jsonify({"status": "error", "message": "Payload must be a non-empty list of products."}), 400
-
-    data_to_insert = []
-    for item in products_data:
-        system_id_value = item.get('system_id')
-        if not system_id_value or len(str(system_id_value).strip()) == 0:
-            print(f"Skipping row due to empty system_id: {item}")
-            continue
-
-        data_to_insert.append((
-            system_id_value,
-            empty_to_none(item.get('upc')),
-            empty_to_none(item.get('custom_sku')),
-            empty_to_none(item.get('ean')),
-            empty_to_none(item.get('manufacture_sku')),
-            item.get('description'),
-            item.get('price'),
-            item.get('category'),
-            item.get('subcat_1'),
-            item.get('subcat_2'),
-            item.get('subcat_3'),
-            item.get('brand')
-        ))
-
-    if not data_to_insert:
-        return jsonify({"status": "error", "message": "No valid product rows with a system_id."}), 400
-
-    conn = None
+def handler(request):
     try:
+        products_data = request.get_json()
+        if not isinstance(products_data, list) or not products_data:
+            return Response(
+                status_code=400,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"status": "error", "message": "Payload must be a non-empty list of products."})
+            )
+
+        data_to_insert = []
+        for item in products_data:
+            system_id_value = item.get('system_id')
+            if not system_id_value or len(str(system_id_value).strip()) == 0:
+                print(f"Skipping row due to empty system_id: {item}")
+                continue
+
+            data_to_insert.append((
+                system_id_value,
+                empty_to_none(item.get('upc')),
+                empty_to_none(item.get('custom_sku')),
+                empty_to_none(item.get('ean')),
+                empty_to_none(item.get('manufacture_sku')),
+                item.get('description'),
+                item.get('price'),
+                item.get('category'),
+                item.get('subcat_1'),
+                item.get('subcat_2'),
+                item.get('subcat_3'),
+                item.get('brand')
+            ))
+
+        if not data_to_insert:
+            return Response(
+                status_code=400,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"status": "error", "message": "No valid product rows with a system_id."})
+            )
+
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -80,15 +83,25 @@ def handler():
         psycopg2.extras.execute_batch(cur, sql_upsert, data_to_insert)
         conn.commit()
 
-        return jsonify({
-            "status": "success",
-            "message": f"Successfully processed {len(data_to_insert)} valid product records."
-        })
+        return Response(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({
+                "status": "success",
+                "message": f"Successfully processed {len(data_to_insert)} valid product records."
+            })
+        )
 
     except Exception as e:
         print(e)
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        return Response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"status": "error", "message": str(e)})
+        )
     finally:
-        if conn:
-            conn.close()
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass

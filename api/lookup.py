@@ -1,12 +1,8 @@
-# api/lookup.py
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import json
 import psycopg2
 import psycopg2.extras
-
-app = Flask(__name__)
-CORS(app)
+from vercel import Response
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -15,18 +11,17 @@ def get_db_connection():
         raise ValueError("DATABASE_URL not set")
     return psycopg2.connect(DATABASE_URL)
 
-def handle_db_error(e):
-    print(f"Database error: {e}")
-    return jsonify({"status": "error", "message": "A database error occurred.", "error": str(e)}), 500
-
-@app.route("/", methods=["GET"])
-def handler():
-    query = request.args.get("q", "").strip()
-    if not query:
-        return jsonify([])
-
-    conn = None
+def handler(request):
     try:
+        query = request.args.get("q", "").strip()
+        if not query:
+            # Return empty array if no query
+            return Response(
+                status_code=200,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps([])
+            )
+
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -63,10 +58,30 @@ def handler():
 
         cur.execute(sql, args)
         items = cur.fetchall()
-        return jsonify(items)
+
+        return Response(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps(items, default=str)  # default=str to handle any non-serializable types
+        )
 
     except psycopg2.Error as e:
-        return handle_db_error(e)
+        print(f"Database error: {e}")
+        return Response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"status": "error", "message": "A database error occurred.", "error": str(e)})
+        )
+    except Exception as e:
+        print(f"Error: {e}")
+        return Response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"status": "error", "message": str(e)})
+        )
     finally:
-        if conn:
-            conn.close()
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass

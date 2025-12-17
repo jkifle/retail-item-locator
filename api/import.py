@@ -1,12 +1,8 @@
-# api/import.py
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import json
 import psycopg2
 import psycopg2.extras
-
-app = Flask(__name__)
-CORS(app)
+from vercel import Response
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -21,22 +17,28 @@ def empty_to_none(value):
     s = str(value).strip()
     return s if s else None
 
-@app.route("/", methods=["POST"])
-def handler():
-    payload_data = request.get_json()
-    
-    if isinstance(payload_data, dict):
-        payloads = [payload_data]
-    elif isinstance(payload_data, list):
-        payloads = payload_data
-    else:
-        return jsonify({"status": "error", "message": "Invalid payload format. Expected dict or list."}), 400
-
-    if not payloads:
-        return jsonify({"status": "error", "message": "No location data received."}), 400
-
-    conn = None
+def handler(request):
     try:
+        payload_data = request.json()
+        
+        if isinstance(payload_data, dict):
+            payloads = [payload_data]
+        elif isinstance(payload_data, list):
+            payloads = payload_data
+        else:
+            return Response(
+                status_code=400,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"status": "error", "message": "Invalid payload format. Expected dict or list."})
+            )
+
+        if not payloads:
+            return Response(
+                status_code=400,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({"status": "error", "message": "No location data received."})
+            )
+
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -73,10 +75,14 @@ def handler():
                 print(f"No product found for code {input_code}, skipping.")
 
         if not data_to_insert:
-            return jsonify({
-                "status": "error",
-                "message": "No valid codes found in the product database."
-            }), 404
+            return Response(
+                status_code=404,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({
+                    "status": "error",
+                    "message": "No valid codes found in the product database."
+                })
+            )
 
         sql_upsert = """
             INSERT INTO inventory (system_id, shelf_id, shelf_row, item_position)
@@ -86,25 +92,46 @@ def handler():
         """
         psycopg2.extras.execute_batch(cur, sql_upsert, data_to_insert)
         conn.commit()
+        cur.close()
+        conn.close()
 
-        return jsonify({
-            "status": "success",
-            "message": f"Successfully mapped and assigned {len(data_to_insert)} locations."
-        })
+        return Response(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({
+                "status": "success",
+                "message": f"Successfully mapped and assigned {len(data_to_insert)} locations."
+            })
+        )
 
     except psycopg2.IntegrityError as e:
         if 'foreign key constraint' in str(e):
-            return jsonify({
-                "status": "error",
-                "message": "Product data not found for one or more codes. Please sync product data first.",
-                "error": str(e)
-            }), 404
-        return jsonify({"status": "error", "message": str(e)}), 500
+            return Response(
+                status_code=404,
+                headers={"Content-Type": "application/json"},
+                body=json.dumps({
+                    "status": "error",
+                    "message": "Product data not found for one or more codes. Please sync product data first.",
+                    "error": str(e)
+                })
+            )
+        return Response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"status": "error", "message": str(e)})
+        )
 
     except Exception as e:
         print(e)
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return Response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=json.dumps({"status": "error", "message": str(e)})
+        )
 
     finally:
-        if conn:
-            conn.close()
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
