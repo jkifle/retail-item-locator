@@ -71,6 +71,3 @@ def handler():
         if conn:
             conn.close()
 
-# Enable Flask to work as a Vercel serverless function
-if __name__ == "__main__":
-    app.run(debug=True)

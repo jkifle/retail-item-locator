@@ -93,6 +93,3 @@ def handler():
         if conn:
             conn.close()
 
-# Enable Flask local run (optional)
-if __name__ == "__main__":
-    app.run(debug=True)
