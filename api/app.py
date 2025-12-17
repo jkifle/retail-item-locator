@@ -6,6 +6,9 @@ import psycopg2.extras # Needed for execute_batch and RealDictCursor
 
 # --- Database Connection and Environment Setup ---
 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app) 
@@ -338,4 +341,9 @@ def bulk_product_import():
         if conn:
             conn.close()
 
+if __name__ == "__main__":
+    if not DATABASE_URL:
+        print("WARNING: DATABASE_URL not found. Please create a .env file.")
+    
+    app.run(debug=True, port=5000)
 
