@@ -1,13 +1,14 @@
 // src/components/ItemLookup.tsx
 import React, { useState } from "react";
-import type { KeyboardEvent } from "react"; // <-- FIX: Use 'import type' for KeyboardEvent
-import type { InventoryItem } from "../src/types";
+import type { KeyboardEvent } from "react";
+import type { LookupResult } from "../src/types";
 
 const API_LOOKUP_URL = "http://127.0.0.1:5000/api/lookup";
 
 const ItemLookup: React.FC = () => {
   const [query, setQuery] = useState<string>("");
-  const [results, setResults] = useState<InventoryItem[]>([]);
+  // CRITICAL FIX: Use the correct type name, LookupResult
+  const [results, setResults] = useState<LookupResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,21 +28,22 @@ const ItemLookup: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Cast the returned data to the expected type
-        setResults(data as InventoryItem[]);
+        // Cast the returned data to the correct type
+        setResults(data as LookupResult[]);
       } else {
-        setError(data.error || "Unknown error during lookup.");
+        // If the API returns a standard error object
+        setError(data.message || data.error || "Unknown error during lookup.");
       }
     } catch (e) {
       setError("Connection error: Ensure the Flask server is running.");
-      console.log(e);
+      console.error(e); // Use console.error for actual errors
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (_e: KeyboardEvent<HTMLInputElement>) => {
-    if (_e.key === "Enter") {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
       lookupItem();
     }
   };
@@ -67,9 +69,11 @@ const ItemLookup: React.FC = () => {
       {results.length > 0 ? (
         <div className="results-container">
           <h3>{results.length} result(s) found:</h3>
-          {results.map((item) => (
-            <div key={item.upc_id} className="result-card">
-              <strong>{item.item_name}</strong> (UPC: {item.upc_id})
+          {results.map((item, index) => (
+            // CRITICAL FIX: Use system_id + index for a unique key if system_id repeats
+            <div key={`${item.system_id}-${index}`} className="result-card">
+              {/* CRITICAL FIX: Use 'description' instead of 'item_name' */}
+              <strong>{item.description}</strong> (UPC: {item.upc_id})
               <div className="location">
                 {item.shelf_id} / {item.shelf_row} / POS {item.item_position}
               </div>
