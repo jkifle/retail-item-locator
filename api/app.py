@@ -26,7 +26,7 @@ def handle_db_error(e):
 # Blueprint: Import API
 import_bp = Blueprint("import_api", __name__)
 
-@import_bp.route("/", methods=["POST"])
+@import_bp.route("", methods=["POST"])
 def import_handler():
     payload_data = request.get_json()
     
@@ -95,7 +95,7 @@ def import_handler():
 # Blueprint: Product Import API
 product_import_bp = Blueprint("product_import_api", __name__)
 
-@product_import_bp.route("/", methods=["POST"])
+@product_import_bp.route("", methods=["POST"])
 def product_import_handler():
     products_data = request.get_json()
     if not isinstance(products_data, list) or not products_data:
@@ -164,7 +164,7 @@ def product_import_handler():
 # Blueprint: Lookup API
 lookup_bp = Blueprint("lookup_api", __name__)
 
-@lookup_bp.route("/", methods=["GET"])
+@lookup_bp.route("", methods=["GET"])
 def lookup_handler():
     query = request.args.get("q", "").strip()
     if not query:
@@ -221,9 +221,10 @@ app = Flask(__name__)
 CORS(
     app,
     origins=["https://retail-item-locator.onrender.com"],
-    methods=["GET", "POST", "OPTIONS"],  # include OPTIONS for preflight
-    allow_headers=["Content-Type", "Authorization"]  # headers sent in fetch
+    methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"]
 )
+
 # Register all blueprints
 app.register_blueprint(import_bp, url_prefix="/api/import")
 app.register_blueprint(product_import_bp, url_prefix="/api/product-import")
