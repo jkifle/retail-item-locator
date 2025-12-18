@@ -4,7 +4,8 @@ import type { KeyboardEvent, ChangeEvent } from "react";
 import type { ImportPayload, RawLocationCSVRow } from "../types";
 import Papa from "papaparse";
 
-const API_IMPORT_URL = "/api/import";
+const API_IMPORT_URL =
+  "https://retail-item-locator-api.onrender.com/api/import";
 
 // Define the available modes
 type ImportMode = "scan" | "file" | "paste";

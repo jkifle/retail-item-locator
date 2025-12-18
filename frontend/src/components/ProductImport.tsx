@@ -4,7 +4,8 @@ import type { ChangeEvent } from "react";
 import type { RawProductCSVRow, ProductPayload } from "../types";
 import Papa from "papaparse";
 
-const API_IMPORT_URL = "/api/product-import";
+const API_IMPORT_URL =
+  "https://retail-item-locator-api.onrender.com/api/product-import";
 
 // Helper function to dynamically apply CSS classes for status messages
 const getStatusClasses = (

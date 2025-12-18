@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { LookupResult } from "../types";
 
-export const API_LOOKUP_URL = "/api/lookup";
+export const API_LOOKUP_URL =
+  "https://retail-item-locator-api.onrender.com/api/lookup";
 
 const ItemLookup: React.FC = () => {
   const [query, setQuery] = useState<string>("");
