@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import type { AppView } from "./types";
-import ItemLookup from "../components/ItemLookup";
-import BulkImport from "../components/BulkImport";
-import ProductImport from "../components/ProductImport";
+import ItemLookup from "./components/ItemLookup";
+import BulkImport from "./components/BulkImport";
+import ProductImport from "./components/ProductImport";
 import "./App.css";
 
 const App: React.FC = () => {

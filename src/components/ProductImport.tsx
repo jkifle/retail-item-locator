@@ -1,7 +1,7 @@
 // src/components/ProductImport.tsx
 import React, { useState } from "react";
 import type { ChangeEvent } from "react";
-import type { RawProductCSVRow, ProductPayload } from "../src/types";
+import type { RawProductCSVRow, ProductPayload } from "../types";
 import Papa from "papaparse";
 
 const API_IMPORT_URL = "/api/product-import";

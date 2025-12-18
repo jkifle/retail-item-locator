@@ -1,7 +1,7 @@
 // src/components/BulkImport.tsx
 import React, { useState, useRef } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
-import type { ImportPayload, RawLocationCSVRow } from "../src/types";
+import type { ImportPayload, RawLocationCSVRow } from "../types";
 import Papa from "papaparse";
 
 const API_IMPORT_URL = "/api/import";

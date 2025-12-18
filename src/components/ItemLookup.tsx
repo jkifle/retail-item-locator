@@ -1,7 +1,7 @@
 // src/components/ItemLookup.tsx
 import React, { useState } from "react";
 import type { KeyboardEvent } from "react";
-import type { LookupResult } from "../src/types";
+import type { LookupResult } from "../types";
 
 export const API_LOOKUP_URL = "/api/lookup";
 
