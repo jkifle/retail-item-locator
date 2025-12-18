@@ -1,8 +1,0 @@
-[project]
-name = "retail-item-locator"
-version = "0.1.0"
-description = "Serverless Python APIs for item lookup and product import"
-requires-python = ">=3.11,<3.12"
-dependencies = [
-    "psycopg2-binary"
-]

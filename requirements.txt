@@ -1,0 +1,4 @@
+psycopg2-binary==2.9.10
+Flask==2.3.4
+Flask-Cors==3.1.13
+gunicorn==21.2.0
