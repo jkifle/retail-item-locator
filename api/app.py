@@ -218,9 +218,12 @@ def lookup_handler():
 
 # Main Flask App
 app = Flask(__name__)
-CORS(app, origins=["https://retail-item-locator.onrender.com"])
-
-
+CORS(
+    app,
+    origins=["https://retail-item-locator.onrender.com"],
+    methods=["GET", "POST", "OPTIONS"],  # include OPTIONS for preflight
+    allow_headers=["Content-Type", "Authorization"]  # headers sent in fetch
+)
 # Register all blueprints
 app.register_blueprint(import_bp, url_prefix="/api/import")
 app.register_blueprint(product_import_bp, url_prefix="/api/product-import")
