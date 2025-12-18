@@ -7,7 +7,6 @@ export const API_LOOKUP_URL = "/api/lookup";
 
 const ItemLookup: React.FC = () => {
   const [query, setQuery] = useState<string>("");
-  // CRITICAL FIX: Use the correct type name, LookupResult
   const [results, setResults] = useState<LookupResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +35,7 @@ const ItemLookup: React.FC = () => {
       }
     } catch (e) {
       setError("Connection error: Ensure the Flask server is running.");
-      console.error(e); // Use console.error for actual errors
+      console.error(e);
     } finally {
       setLoading(false);
     }
