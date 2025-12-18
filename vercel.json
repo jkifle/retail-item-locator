@@ -1,22 +1,28 @@
 {
   "version": 2,
-  "name": "retail-item-locator",
   "builds": [
+        {
+      "src": "api/*.py",
+      "use": "@vercel/python"
+    },
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "config": { "distDir": "dist" }
+    }
+
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.py"
     },
     {
-      "src": "api/**/*.py",
-      "use": "@vercel/python"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
-  ],
-  "handle": "filesystem",
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.py" },
-    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
