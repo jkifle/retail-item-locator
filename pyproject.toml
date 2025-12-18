@@ -1,16 +1,10 @@
 [project]
-name = "retail-item-locator-api"
+name = "retail-item-locator"
 version = "0.1.0"
-description = "Serverless API for Retail Item Locator"
-authors = [
-    { name = "Joseph Kifle", email = "your-email@example.com" }
-]
-readme = "README.md"
-requires-python = ">=3.11,<3.12"  # Vercel currently recommends Python 3.11
+description = "Serverless Python APIs for item lookup and product import"
+requires-python = ">=3.11,<3.12"
 
 [project.dependencies]
-psycopg2-binary = "^2.9.7"
-
-[build-system]
-requires = ["setuptools>=65.5.0", "wheel"]
-build-backend = "setuptools.build_meta"
+dependencies = [
+    "psycopg2-binary"
+]
