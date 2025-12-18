@@ -14,6 +14,7 @@
       "use": "@vercel/python"
     }
   ],
+  "handle": "filesystem",
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.py" },
     { "src": "/(.*)", "dest": "/index.html" }
