@@ -24,10 +24,11 @@ def handler():
     query = request.args.get("q", "").strip()
     if not query:
         return jsonify([])
-
+    print("Proof the api works")
     conn = None
     try:
         conn = get_db_connection()
+        print("Database connection established.")
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         input_code = query
