@@ -1,19 +1,17 @@
 # api/product-import.py
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
-
-app = Flask(__name__)
-CORS(app)
+import json
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL not set")
     return psycopg2.connect(DATABASE_URL)
+
 
 def empty_to_none(value):
     if value is None:
@@ -21,36 +19,59 @@ def empty_to_none(value):
     s = str(value).strip()
     return s if s else None
 
-@app.route("/", methods=["POST"])
-def handler():
-    products_data = request.get_json()
+
+# Vercel serverless handler
+def handler(request):
+    try:
+        products_data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "status": "error",
+                "message": "Invalid JSON payload."
+            }),
+        }
+
     if not isinstance(products_data, list) or not products_data:
-        return jsonify({"status": "error", "message": "Payload must be a non-empty list of products."}), 400
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "status": "error",
+                "message": "Payload must be a non-empty list of products."
+            }),
+        }
 
     data_to_insert = []
     for item in products_data:
-        system_id_value = item.get('system_id')
+        system_id_value = item.get("system_id")
         if not system_id_value or len(str(system_id_value).strip()) == 0:
             print(f"Skipping row due to empty system_id: {item}")
             continue
 
         data_to_insert.append((
             system_id_value,
-            empty_to_none(item.get('upc')),
-            empty_to_none(item.get('custom_sku')),
-            empty_to_none(item.get('ean')),
-            empty_to_none(item.get('manufacture_sku')),
-            item.get('description'),
-            item.get('price'),
-            item.get('category'),
-            item.get('subcat_1'),
-            item.get('subcat_2'),
-            item.get('subcat_3'),
-            item.get('brand')
+            empty_to_none(item.get("upc")),
+            empty_to_none(item.get("custom_sku")),
+            empty_to_none(item.get("ean")),
+            empty_to_none(item.get("manufacture_sku")),
+            item.get("description"),
+            item.get("price"),
+            item.get("category"),
+            item.get("subcat_1"),
+            item.get("subcat_2"),
+            item.get("subcat_3"),
+            item.get("brand")
         ))
 
     if not data_to_insert:
-        return jsonify({"status": "error", "message": "No valid product rows with a system_id."}), 400
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "status": "error",
+                "message": "No valid product rows with a system_id."
+            }),
+        }
 
     conn = None
     try:
@@ -80,16 +101,24 @@ def handler():
         psycopg2.extras.execute_batch(cur, sql_upsert, data_to_insert)
         conn.commit()
 
-        return jsonify({
-            "status": "success",
-            "message": f"Successfully processed {len(data_to_insert)} valid product records."
-        })
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "status": "success",
+                "message": f"Successfully processed {len(data_to_insert)} valid product records."
+            }),
+        }
 
     except Exception as e:
         print(e)
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "status": "error",
+                "message": str(e)
+            }),
+        }
 
     finally:
         if conn:
             conn.close()
-

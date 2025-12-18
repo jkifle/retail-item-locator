@@ -2,28 +2,32 @@
 import os
 import psycopg2
 import psycopg2.extras
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)
+import json
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL not set")
     return psycopg2.connect(DATABASE_URL)
 
-def handle_db_error(e):
-    print(f"Database error: {e}")
-    return jsonify({"status": "error", "message": "A database error occurred.", "error": str(e)}), 500
 
-@app.route("/", methods=["GET"])
-def handler():
-    query = request.args.get("q", "").strip()
+# Vercel serverless handler
+def handler(request):
+    # Read query parameter
+    try:
+        query_params = request.query or {}
+        query = query_params.get("q", "").strip()
+    except Exception:
+        query = ""
+
     if not query:
-        return jsonify([])
+        return {
+            "statusCode": 200,
+            "body": json.dumps([]),
+        }
+
     print("Proof the api works")
     conn = None
     try:
@@ -33,7 +37,7 @@ def handler():
 
         input_code = query
         system_id_search_code = input_code[:12] if len(input_code) >= 12 else input_code
-        truncated_code = input_code.lstrip('0')
+        truncated_code = input_code.lstrip("0")
         search_pattern = f"%{truncated_code}%"
 
         sql = """
@@ -59,16 +63,27 @@ def handler():
             search_pattern,
             search_pattern,
             search_pattern,
-            search_pattern
+            search_pattern,
         )
 
         cur.execute(sql, args)
         items = cur.fetchall()
-        return jsonify(items)
+        return {
+            "statusCode": 200,
+            "body": json.dumps(items, default=str),
+        }
 
     except psycopg2.Error as e:
-        return handle_db_error(e)
+        print(f"Database error: {e}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "status": "error",
+                "message": "A database error occurred.",
+                "error": str(e),
+            }),
+        }
+
     finally:
         if conn:
             conn.close()
-
