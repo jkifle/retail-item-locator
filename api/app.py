@@ -233,7 +233,7 @@ def lookup_handler():
 app = Flask(__name__)
 CORS(
     app,
-    origins=["https://retail-item-locator.onrender.com"],
+    origins=["https://retail-item-locator.onrender.com", "http://localhost:5173"],
     methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"]
 )
