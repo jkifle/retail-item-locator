@@ -4,9 +4,20 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, Blueprint, request, jsonify
 from flask_cors import CORS
+from functools import wraps
 
 # Helper Functions
 DATABASE_URL = os.environ.get("DATABASE_URL")
+API_KEY = os.environ.get("API_KEY")
+
+def require_api_key(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        key = request.headers.get("X-API-Key")
+        if not key or key != API_KEY:
+            return jsonify({"error": "Unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 def get_db_connection():
     if not DATABASE_URL:
@@ -27,6 +38,7 @@ def handle_db_error(e):
 import_bp = Blueprint("import_api", __name__)
 
 @import_bp.route("", methods=["POST"])
+@require_api_key
 def import_handler():
     payload_data = request.get_json()
     
@@ -96,6 +108,7 @@ def import_handler():
 product_import_bp = Blueprint("product_import_api", __name__)
 
 @product_import_bp.route("", methods=["POST"])
+@require_api_key
 def product_import_handler():
     products_data = request.get_json()
     if not isinstance(products_data, list) or not products_data:
