@@ -1,10 +1,9 @@
+import { apiFetch } from "../services/api";
 // src/components/ItemLookup.tsx
 import React, { useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { LookupResult } from "../types";
 
-export const API_LOOKUP_URL =
-  "https://retail-item-locator-api.onrender.com/api/lookup";
 
 const ItemLookup: React.FC = () => {
   const [query, setQuery] = useState<string>("");
@@ -24,7 +23,7 @@ const ItemLookup: React.FC = () => {
     setResults([]);
 
     try {
-      const response = await fetch(`${API_LOOKUP_URL}?q=${query}`);
+      const response = await apiFetch(`/api/lookup?q=${encodeURIComponent(query.trim())}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -75,7 +74,7 @@ const ItemLookup: React.FC = () => {
               {/* CRITICAL FIX: Use 'description' instead of 'item_name' */}
               <strong>{item.description}</strong> (UPC: {item.upc_id})
               <div className="location">
-                {item.shelf_id} / {item.shelf_row} / POS {item.item_position}
+                {item.store_name && `${item.store_name} / `}{item.shelf_id} / {item.shelf_row} / POS {item.item_position}
               </div>
             </div>
           ))}

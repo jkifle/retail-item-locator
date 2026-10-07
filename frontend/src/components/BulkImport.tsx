@@ -1,11 +1,12 @@
+import { loadStores } from "../services/settings";
+import type { Store } from "../services/settings";
+import { apiFetch } from "../services/api";
 // src/components/BulkImport.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import type { ImportPayload, RawLocationCSVRow } from "../types";
 import Papa from "papaparse";
 
-const API_IMPORT_URL =
-  "https://retail-item-locator-api.onrender.com/api/import";
 
 // Define the available modes
 type ImportMode = "scan" | "file" | "paste";
@@ -26,6 +27,18 @@ const getStatusClasses = (
 };
 
 const BulkImport: React.FC = () => {
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storeId, setStoreId] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    loadStores().then(({ stores }) => {
+      if (cancelled) return;
+      const active = stores.filter((store) => store.is_active);
+      setStores(active);
+      if (active.length === 1) setStoreId(active[0].id);
+    }).catch((error) => { if (!cancelled) setStatus({ message: error instanceof Error ? error.message : "Unable to load stores", type: "error" }); });
+    return () => { cancelled = true; };
+  }, []);
   // Location state
   const [shelfId, setShelfId] = useState<string>("");
   const [shelfRow, setShelfRow] = useState<string>("");
@@ -61,6 +74,11 @@ const BulkImport: React.FC = () => {
    * @param payloads An array of ImportPayload objects to be assigned locations.
    */
   const processLocations = async (payloads: ImportPayload[]) => {
+    if (!storeId) {
+      setLoading(false);
+      setStatus({ message: "Select a store before assigning locations.", type: "error" });
+      return;
+    }
     if (payloads.length === 0) {
       setLoading(false);
       return setStatus({
@@ -76,10 +94,10 @@ const BulkImport: React.FC = () => {
     });
 
     try {
-      const response = await fetch(API_IMPORT_URL, {
+      const response = await apiFetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloads),
+        body: JSON.stringify(payloads.map((payload) => ({ ...payload, store_id: storeId }))),
       });
 
       const data = await response.json();
@@ -108,7 +126,7 @@ const BulkImport: React.FC = () => {
           });
         } else {
           setStatus({
-            message: `Server Error: ${data.message || "Check server logs."}`,
+            message: `Server Error: ${data.message || data.error || "Check server logs."}`,
             type: "error",
           });
         }
@@ -263,6 +281,13 @@ const BulkImport: React.FC = () => {
   return (
     <div className="card">
       <h2>Inventory Scan / Location Assignment</h2>
+      <div className="input-group mb-4">
+        <label htmlFor="target-store">Store</label>
+        <select id="target-store" className="border rounded-md bg-background text-foreground p-2 w-full" value={storeId} onChange={(event) => setStoreId(event.target.value)} disabled={loading}>
+          <option value="">Select a store</option>
+          {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+        </select>
+      </div>
 
       {/* Location Inputs (Always visible) */}
       <div className="input-group">

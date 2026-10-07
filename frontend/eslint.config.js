@@ -20,4 +20,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['src/pages/ui/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': ['error', {
+        allowConstantExport: true,
+        allowExportNames: ['badgeVariants', 'buttonVariants', 'toggleVariants', 'navigationMenuTriggerStyle', 'useFormField', 'useSidebar'],
+      }],
+    },
+  },
 ])
