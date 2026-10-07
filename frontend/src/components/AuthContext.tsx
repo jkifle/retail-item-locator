@@ -1,5 +1,6 @@
 // src/components/AuthContext.tsx
 import { API_URL } from "../services/api";
+import { clearSessionCache, invalidateSessionCache } from "../services/sessionCache";
 import React, {
   createContext,
   useContext,
@@ -49,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (firebaseUser) => {
+      clearSessionCache();
       setIsLoading(true);
       setError(null);
       try {
@@ -84,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const signOut = useCallback(async () => {
+    clearSessionCache();
     setIsLoading(true);
     try {
       await firebaseSignOut();
@@ -116,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || result.error || "Unable to save profile");
+    invalidateSessionCache("/api/users");
     setUser(result.data.user);
   }, []);
 
