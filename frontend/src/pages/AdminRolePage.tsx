@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./ui/
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { settingsRequest } from "../services/settings";
+import { invalidateSessionCache } from "../services/sessionCache";
 import type { CompanyUser } from "../services/settings";
 
 const roles = [
@@ -33,7 +34,7 @@ export function AdminRolePage() {
     <Card>
       <CardHeader><CardTitle>Users</CardTitle><CardDescription>Accounts provisioned for your company.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-3"><Input aria-label="Search users" placeholder="Search users" value={query} onChange={(event) => setQuery(event.target.value)} /><Button variant="outline" disabled={loading} onClick={() => { setLoading(true); setReload((value) => value + 1); }}>Refresh</Button></div>
+        <div className="flex gap-3"><Input aria-label="Search users" placeholder="Search users" value={query} onChange={(event) => setQuery(event.target.value)} /><Button variant="outline" disabled={loading} onClick={() => { invalidateSessionCache("/api/users"); setLoading(true); setReload((value) => value + 1); }}>Refresh</Button></div>
         {error && <p role="alert" className="text-destructive">{error}</p>}
         <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map((user) => <TableRow key={user.user_id}><TableCell>{user.display_name || "Name not set"}</TableCell><TableCell>{user.email || "Email not set"}</TableCell><TableCell><Badge variant="outline">{user.role}</Badge></TableCell><TableCell>{user.is_active ? "Active" : "Inactive"}</TableCell></TableRow>)}
