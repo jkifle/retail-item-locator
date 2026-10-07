@@ -1,45 +1,14 @@
-/* src/App.css */
-
-/* --- 1. Global & Variables --- */
-
-/* Use a modern, highly legible font */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-
-:root {
-    /* Define color variables for easy theme changes */
-    --color-primary: #5BC0DE;       /* Light Blue/Cyan for highlights/buttons */
-    --color-secondary: #0D3F52;     /* Dark Teal/Blue for card backgrounds */
-    --color-background: #1e1e1e;    /* Very dark gray for main background */
-    --color-surface: #252525;       /* Slightly lighter dark gray for container */
-    --color-text-light: #f0f0f0;    /* Off-white for general text */
-    --color-text-muted: #aaaaaa;    /* Gray for labels/hints */
-    --color-success: #6cff6c;       /* Bright green */
-    --color-error: #ff7f7f;         /* Soft red */
-    --color-conflict: #ff9900;      /* Orange for warnings/conflicts */
-    
-    --padding-base: 1.5rem;
-    --radius-base: 8px;
-    --shadow-base: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-body {
-    font-family: 'Roboto', sans-serif;
-    background-color: var(--color-background);
-    color: var(--color-text-light);
-    margin: 0;
-    padding: 0;
-    line-height: 1.6;
-}
-
+/* App components use shared theme tokens and yield to Tailwind utilities. */
+@layer components {
 /* --- 2. Layout & Header --- */
 
-.container {
+.app-container {
     max-width: 1200px;
     margin: 0 auto;
     padding: var(--padding-base);
 }
 
-.header {
+.card .header {
     display: flex;
     gap: 10px;
     margin-bottom: var(--padding-base);
@@ -79,61 +48,66 @@ body {
     font-weight: 700;
 }
 
-input[type="text"],
-input[type="number"],
-textarea {
+.card input:not([type="file"]),
+.card select,
+.card textarea {
     padding: 10px 12px;
     border: 1px solid var(--color-secondary);
     border-radius: var(--radius-base);
-    background-color: var(--color-background);
+    background-color: var(--input-background);
     color: var(--color-text-light);
     font-size: 1rem;
     transition: border-color 0.2s;
 }
 
-input:focus,
-textarea:focus {
+.card input:focus,
+.card select:focus,
+.card textarea:focus {
     border-color: var(--color-primary);
     outline: none;
 }
 
 /* --- 5. Buttons & Navigation --- */
 
-button {
+.card button {
     padding: 10px 15px;
     border: none;
     border-radius: var(--radius-base);
     font-weight: 700;
     cursor: pointer;
     background-color: var(--color-primary);
-    color: var(--color-background); /* Dark text on bright button */
+    color: var(--primary-foreground);
+    /* Foreground is paired with the primary background in both themes. */
     transition: background-color 0.2s, opacity 0.2s;
 }
 
-button:hover:not(:disabled) {
-    background-color: #79d7f0; /* Slightly lighter on hover */
+.card button:hover:not(:disabled) {
+    background-color: var(--primary);
+    filter: brightness(1.15);
+    /* Slightly lighter on hover */
 }
 
-button:disabled {
+.card button:disabled {
     background-color: var(--color-secondary);
-    color: var(--color-text-muted);
+    color: var(--secondary-foreground);
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-.header button {
+.card .header button {
     background-color: var(--color-surface);
     color: var(--color-text-light);
     border: 1px solid var(--color-secondary);
 }
 
-.header button:hover:not(:disabled) {
-    background-color: #383838;
+.card .header button:hover:not(:disabled) {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
 }
 
-.header button.active {
+.card .header button.active {
     background-color: var(--color-primary);
-    color: var(--color-background);
+    color: var(--primary-foreground);
     border-color: var(--color-primary);
 }
 
@@ -206,8 +180,21 @@ button:disabled {
 
 /* --- 8. Separator --- */
 
-hr {
+.card hr {
     border: none;
     border-top: 1px solid var(--color-secondary);
     margin: 1.5rem 0;
+}
+.card button.active:not(:disabled) {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+.status-message.info {
+    background: var(--muted);
+    color: var(--foreground);
+    border-color: var(--ring);
+}
+.error-message.error { color: var(--error); }
+
 }

@@ -1,11 +1,10 @@
+import { apiFetch } from "../services/api";
 // src/components/ProductImport.tsx
 import React, { useState } from "react";
 import type { ChangeEvent } from "react";
 import type { RawProductCSVRow, ProductPayload } from "../types";
 import Papa from "papaparse";
 
-const API_IMPORT_URL =
-  "https://retail-item-locator-api.onrender.com/api/product-import";
 
 // Helper function to dynamically apply CSS classes for status messages
 const getStatusClasses = (
@@ -60,8 +59,9 @@ const ProductImport: React.FC = () => {
           .map((row) => {
             // Crucial: Check for the primary key (UPC)
             const upc = String(row.UPC || "").trim();
-            if (upc.length === 0) {
-              console.warn("Skipping row with missing UPC:", row);
+            const systemId = String(row["System ID"] || "").trim();
+            if (systemId.length === 0) {
+              console.warn("Skipping row with missing System ID:", row);
               return null;
             }
 
@@ -78,7 +78,7 @@ const ProductImport: React.FC = () => {
               custom_sku: String(row["Custom SKU"] || "").trim(),
               ean: String(row.EAN || "").trim(),
               manufacture_sku: String(row["Manufact. SKU"] || "").trim(),
-              system_id: String(row["System ID"] || "").trim(),
+              system_id: systemId,
             } as ProductPayload;
           })
           .filter((p): p is ProductPayload => p !== null);
@@ -93,7 +93,7 @@ const ProductImport: React.FC = () => {
 
         // --- API Submission ---
         try {
-          const response = await fetch(API_IMPORT_URL, {
+          const response = await apiFetch("/api/product-import", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(productPayloads),
@@ -110,7 +110,7 @@ const ProductImport: React.FC = () => {
           } else {
             // The server response should contain a detailed message on failure
             setStatus({
-              message: `Server Error: ${data.message || "Check server logs."}`,
+              message: `Server Error: ${data.message || data.error || "Check server logs."}`,
               type: "error",
             });
           }
@@ -136,8 +136,7 @@ const ProductImport: React.FC = () => {
     <div className="card">
       <h2>Product Data Master Sync</h2>
       <p>
-        Upload a CSV file to update the master list of products. This uses the
-        UPC as the primary key.
+        Upload a CSV file to update the master list of products. Records are identified by System ID within your organization.
       </p>
 
       <div className="input-group">
@@ -149,8 +148,8 @@ const ProductImport: React.FC = () => {
             marginTop: "-5px",
           }}
         >
-          CSV must contain the following headers: **UPC, Name, Price, Category,
-          Brand, CustomSKU, EAN, ManufacturerSKU**.
+          CSV headers: System ID (required), UPC, Item, Price, Category, Brand,
+          Custom SKU, EAN, Manufact. SKU.
         </p>
         <input
           id="product-file"

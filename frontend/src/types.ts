@@ -55,6 +55,7 @@ export interface RawLocationCSVRow {
 
 // INVENTORY IMPORT PAYLOAD (Sent to /api/import)
 export interface ImportPayload {
+    store_id?: string;
     upc: string;
     shelf_id: string;
     shelf_row: string;
@@ -64,6 +65,9 @@ export interface ImportPayload {
 
 // LOOKUP RESULT (Data received from /api/lookup)
 export interface LookupResult {
+    inventory_id?: string;
+    store_id?: string;
+    store_name?: string;
     // Product Fields (from ProductPayload structure)
     system_id: string;
     upc_id: string;

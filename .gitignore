@@ -26,3 +26,12 @@ dist-ssr
 .env
 api/.venv/
 api/.env
+frontend/.env
+.env.local.template
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Local database recovery archives (may contain sensitive data)
+.backups/
